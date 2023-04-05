@@ -100,10 +100,12 @@ export default function Home() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ prompt: text, userId: visitorData?.visitorId }),
+        body: JSON.stringify({ prompt: text, userId: visitorData?.visitorId ?? "1" }),
       });
 
-      await response.json();
+      const data = await response.json();
+      console.log(data);
+      
     } catch (error) {
       console.error("Error submitting message:", error);
     } finally {

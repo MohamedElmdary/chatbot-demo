@@ -11,7 +11,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { uuid } from 'uuidv4';
 import { summarizeLongDocument } from './summarizer';
 
-import { ConversationLog } from './conversationLog';
+// import { ConversationLog } from './conversationLog';
 import { Metadata, getMatchesFromEmbeddings } from './matches';
 import { templates } from './templates';
 
@@ -28,6 +28,8 @@ const initPineconeClient = async () => {
 }
 
 const ably = new Ably.Realtime({ key: process.env.ABLY_API_KEY });
+console.log({ key: process.env.ABLY_API_KEY });
+
 
 const handleRequest = async ({ prompt, userId }: { prompt: string, userId: string }) => {
   if (!pinecone) {
@@ -41,9 +43,9 @@ const handleRequest = async ({ prompt, userId }: { prompt: string, userId: strin
     const interactionId = uuid()
 
     // Retrieve the conversation log and save the user's prompt
-    const conversationLog = new ConversationLog(userId)
-    const conversationHistory = await conversationLog.getConversation({ limit: 10 })
-    await conversationLog.addEntry({ entry: prompt, speaker: "user" })
+    // const conversationLog = new ConversationLog(userId)
+    // const conversationHistory = await conversationLog.getConversation({ limit: 10 })
+    // await conversationLog.addEntry({ entry: prompt, speaker: "user" })
 
     // Build an LLM chain that will improve the user prompt
     const inquiryChain = new LLMChain({
@@ -52,7 +54,7 @@ const handleRequest = async ({ prompt, userId }: { prompt: string, userId: strin
         inputVariables: ["userPrompt", "conversationHistory"],
       })
     });
-    const inquiryChainResult = await inquiryChain.call({ userPrompt: prompt, conversationHistory })
+    const inquiryChainResult = await inquiryChain.call({ userPrompt: prompt, conversationHistory: "<string>" })
     const inquiry = inquiryChainResult.text
 
     // Embed the user's intent and query the Pinecone index
@@ -138,7 +140,6 @@ const handleRequest = async ({ prompt, userId }: { prompt: string, userId: strin
     }
 
     const summary = await summarizeLongDocument(fullDocuments!.join("\n"), inquiry, onSummaryDone)
-    console.log(summary)
 
     // const summary = chunkedDocs!.join("\n")
 
@@ -161,7 +162,6 @@ const handleRequest = async ({ prompt, userId }: { prompt: string, userId: strin
       modelName: "gpt-3.5-turbo",
       callbackManager: CallbackManager.fromHandlers({
         async handleLLMNewToken(token) {
-          console.log(token)
           channel.publish({
             data: {
               event: "response",
@@ -187,13 +187,12 @@ const handleRequest = async ({ prompt, userId }: { prompt: string, userId: strin
       llm: chat,
     });
 
-    await chain.call({
+    return chain.call({
       summaries: summary,
       question: prompt,
-      conversationHistory,
+      conversationHistory: "<string>",
       urls
     });
-
   } catch (error) {
     //@ts-ignore
     console.error(error)
@@ -206,6 +205,6 @@ export default async function handler(
 ) {
   const { body } = req;
   const { prompt, userId } = body;
-  await handleRequest({ prompt, userId })
-  res.status(200).json({ "message": "started" })
+  const message = await handleRequest({ prompt, userId })
+  res.status(200).json({ message })
 }
